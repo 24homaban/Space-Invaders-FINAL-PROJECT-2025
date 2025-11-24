@@ -86,15 +86,22 @@ module Top_Module (
 	//////////// GPIO_1, GPIO_1 connect to GPIO Default //////////
 	//inout 		    [35:0]		GPIO_1
 );
-wire [9:0] score;
-assign score = SW[9:0];
+wire [10:0] score;
 wire clk;
 assign clk = CLOCK_50;
 wire rst;
 assign rst = KEY[0];
-wire [23:0]vga_color;
+reg [23:0]vga_color;
+wire [23:0] player_color;
+wire [23:0] enemy_color;
+wire [9:0] bullet_y;
+wire [9:0] bullet_x;
+wire bullet_hit;
 wire [9:0] x;
 wire [9:0] y;
+wire enemy_reached_bottom;
+reg in_game;
+
 
 parameter MEMORY_SIZE = 16'd19200; // 160*120 // Number of memory spots ... highly reduced since memory is slow
 parameter PIXEL_VIRTUAL_SIZE = 16'd4; // Pixels per spot - therefore 4x4 pixels are drawn per memory location
@@ -109,14 +116,20 @@ parameter VIRTUAL_PIXEL_HEIGHT = VGA_HEIGHT/PIXEL_VIRTUAL_SIZE; // 120
 
 always@(*)
 begin
+	vga_color = player_color | enemy_color;
 	{VGA_R, VGA_G, VGA_B} = vga_color;
 end
 
-player the_player (.clk(clk), .rst(rst), .bullet_hit(bullet_hit), .left(~KEY[3]), .right(~KEY[1]), .shoot(~KEY[2]), .xPixel(x), .yPixel(y), 
-.player_color(vga_color));
 
-//enemy_movement(.clk(clk), .rst(rst), .xPixel(x), .yPixel(y), .enemy_color(vga_color));
 
+player the_player (.clk(clk), .rst(rst), .bullet_hit(bullet_hit), .left(~KEY[3]), .right(~KEY[1]), .shoot(~KEY[2]), .xPixel(x), .yPixel(y), .in_game(in_game), .bullet_x(bullet_x),
+.bullet_y(bullet_y), .player_color(player_color));
+
+enemy_grid1 aliens(.clk(clk), .rst(rst), .xPixel(x), .yPixel(y), .bullet_x(bullet_x), .bullet_y(bullet_y), .bullet_hit(bullet_hit), .in_game(in_game), .enemy_color(enemy_color), 
+.score(score), .enemy_reached_bottom(enemy_reached_bottom));
+//alien_grid aliens(.clk(clk), .rst(rst), .xPixel(x), .yPixel(y), .bullet_x(bullet_x), .bullet_y(bullet_y), .bullet_hit(bullet_hit), .enemy_color(enemy_color));
+//enemy_movement aliens(.clk(clk), .rst(rst), .xPixel(x), .yPixel(y), .bullet_x(bullet_x), .bullet_y(bullet_y), .bullet_hit(bullet_hit), .enemy_color(enemy_color));
+game_state game( .clk(clk), .rst(rst), .start(SW[0]), .xPixel(x), .yPixel(y), .enemy_reached_bottom(enemy_reached_bottom), .in_game(in_game), .lives(LEDR[1:0]));
 
 five_decimal_vals score1(score, HEX0, HEX1, HEX2, HEX3, HEX4, HEX5);
 

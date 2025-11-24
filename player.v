@@ -6,14 +6,17 @@ module player (
    input right,
    input shoot,
    input [9:0] xPixel,  
-   input [9:0] yPixel,  
+   input [9:0] yPixel, 
+	input in_game,
+	output reg [9:0] bullet_x,
+	output reg [9:0] bullet_y,
    output reg [23:0] player_color
-	//output reg [23:0] bullet_color,
+	
 );
 
 
-    parameter PLAYER_WIDTH  = 80;
-    parameter PLAYER_HEIGHT = 40;
+    parameter PLAYER_WIDTH  = 60;
+    parameter PLAYER_HEIGHT = 30;
     parameter SCREEN_WIDTH  = 640;
 	 parameter VIRTUAL_SCREEN_WIDTH = 160;
     parameter SCREEN_HEIGHT = 480;
@@ -30,8 +33,6 @@ module player (
 
     reg [9:0] player_x;
     reg [9:0] player_y;
-	 reg [9:0] bullet_x;
-    reg [9:0] bullet_y;
     reg [22:0] move_delay;
 	 reg [19:0] bullet_move_delay;
 
@@ -44,6 +45,7 @@ module player (
 		S <= NS;
 
     always @(*) 
+	
 	 begin
         case (S)
             IDLE: begin
@@ -77,9 +79,10 @@ module player (
             bullet_y <= 0;
             move_delay <= 0;
         end else 
+		  
 		  begin
             if (move_delay == 0)
-                move_delay <= 23'd5000000;
+                move_delay <= 23'd1000000;
             else
                 move_delay <= move_delay - 1'b1;
 					 
@@ -91,16 +94,16 @@ module player (
             
             if (move_delay == 0) begin
                 if (left && !right && player_x > 0)
-                    player_x <= player_x - 8;
+                    player_x <= player_x - 1;
                 else if (right && !left && player_x < (SCREEN_WIDTH - PLAYER_WIDTH))
-                    player_x <= player_x + 8;
+                    player_x <= player_x + 1;
             end
 
             // Bullet updates
             case (S)
                 IDLE: begin
                     bullet_x <= 0;
-                    bullet_y <= 0;
+                    bullet_y <= 800;
                 end
                 SHOOT: begin
                     bullet_x <= player_x + (PLAYER_WIDTH / 2) - (BULLET_WIDTH / 2);
@@ -116,12 +119,14 @@ module player (
 
 	 
 	always@(*)
+	
+	
 	if(xPixel >= player_x && xPixel <= player_x + PLAYER_WIDTH && yPixel >= player_y && yPixel <= player_y + PLAYER_HEIGHT)
 		player_color = 24'h00FF19;
 	else
 		if(xPixel >= bullet_x && xPixel <= bullet_x + BULLET_WIDTH && yPixel >= bullet_y && yPixel <= bullet_y+BULLET_HEIGHT)
 			player_color = 24'hFF0000;
 		else
-			player_color = 24'h000000;
+			player_color = 24'h808080;
  
 endmodule
