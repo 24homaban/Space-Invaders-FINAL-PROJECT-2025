@@ -86,15 +86,32 @@ module Top_Module (
 	//////////// GPIO_1, GPIO_1 connect to GPIO Default //////////
 	//inout 		    [35:0]		GPIO_1
 );
-wire [9:0] score;
-assign score = SW[9:0];
+wire [10:0] score;
+wire [9:0] SW_db;
 wire clk;
 assign clk = CLOCK_50;
 wire rst;
 assign rst = KEY[0];
-wire [23:0]vga_color;
+reg [23:0]vga_color;
+wire [23:0] player_color;
+wire [23:0] enemy_color;
+wire [9:0] bullet_y;
+wire [9:0] bullet_x;
+wire bullet_hit;
 wire [9:0] x;
 wire [9:0] y;
+reg [10:0] total_score;
+reg in_game;
+reg reset_level;
+wire enemy_hit_player;
+wire enemy_reached_bottom;
+reg [1:0] level;
+reg [1:0] lives;
+
+assign  LEDR[9:8] = S;
+assign  LEDR[6:5] = lives;
+assign  LEDR[3:2] = level;
+
 
 parameter MEMORY_SIZE = 16'd19200; // 160*120 // Number of memory spots ... highly reduced since memory is slow
 parameter PIXEL_VIRTUAL_SIZE = 16'd4; // Pixels per spot - therefore 4x4 pixels are drawn per memory location
@@ -107,20 +124,179 @@ parameter VGA_HEIGHT = 16'd480;
 parameter VIRTUAL_PIXEL_WIDTH = VGA_WIDTH/PIXEL_VIRTUAL_SIZE; // 160
 parameter VIRTUAL_PIXEL_HEIGHT = VGA_HEIGHT/PIXEL_VIRTUAL_SIZE; // 120
 
-always@(*)
-begin
-	{VGA_R, VGA_G, VGA_B} = vga_color;
+always @(*) begin
+    {VGA_R, VGA_G, VGA_B} = vga_color;
 end
 
-player the_player (.clk(clk), .rst(rst), .bullet_hit(bullet_hit), .left(~KEY[3]), .right(~KEY[1]), .shoot(~KEY[2]), .xPixel(x), .yPixel(y), 
-.player_color(vga_color));
-
-//enemy_movement(.clk(clk), .rst(rst), .xPixel(x), .yPixel(y), .enemy_color(vga_color));
 
 
-five_decimal_vals score1(score, HEX0, HEX1, HEX2, HEX3, HEX4, HEX5);
 
-debounce_switches db(clk, rst, SW, SW_db);
+parameter  START       = 2'd0,
+           LEVEL       = 2'd1,
+           WAVE_CLEAR  = 2'd2,
+           GAME_OVER   = 2'd3;
+
+    reg [1:0] S, NS;
+
+    
+    always @(posedge clk or negedge rst)
+        if (!rst) 
+            S <= START;
+            
+       else 
+            S <= NS;
+       
+
+    
+    always @(*) begin
+
+        case (S)
+
+        
+            START: begin
+				in_game = 1'b0;
+				vga_color = 24'h0000FF;
+				
+                if (SW[0]) begin
+                    NS = LEVEL;
+                end
+					 else 
+						NS = START;
+            end
+
+           
+            LEVEL: begin
+				
+				vga_color = player_color | enemy_color; //| laser_color;
+				in_game = 1'b1;
+           
+                /*if (enemy_hit_player) begin
+                    if (lives > 1) begin
+                        NS = LEVEL;
+                    end else begin
+                        NS = GAME_OVER;
+                    end
+                end
+
+               
+                else */if (enemy_reached_bottom) begin
+                    if (lives > 1) begin
+                        NS = LEVEL;
+                    end else begin
+                        NS = GAME_OVER;
+                    end
+                end
+
+                
+                else if (score == 11'd900) begin 
+                    if (level < 2'd3) begin
+                        NS = WAVE_CLEAR;
+                    end else begin
+                        NS = GAME_OVER;
+                    end
+						  end
+						  else
+								NS = LEVEL;
+            end
+
+           
+            WAVE_CLEAR: begin
+				
+				in_game = 1'b0;
+				vga_color = 24'h00FF00;
+				
+               if (SW[1]) begin
+						NS = LEVEL;
+                end
+					else
+						NS = WAVE_CLEAR;
+            end
+
+            
+				
+            GAME_OVER: begin
+				in_game = 1'b0;
+				vga_color = 24'hFF0000;
+				
+                if (SW[2]) begin
+                  NS = START;
+                end
+					 else
+						NS = GAME_OVER;
+            end
+
+        endcase
+    end
+
+    
+    always @(posedge clk or negedge rst) begin
+        if (!rst)
+		  begin
+            total_score <= 11'd0;
+				level <= 2'd1;
+            lives <= 2'd3;
+            reset_level <= 1'd0;
+			end
+        else begin
+				reset_level <= 1'd0;
+            total_score <= score;   
+				
+				case (S)
+				START: begin
+                if (SW[0])
+                    reset_level <= 1'b1;
+                
+            end
+
+           
+            LEVEL: begin
+					 reset_level <= 1'b0;
+
+                
+               if (enemy_reached_bottom) begin
+                    if (lives > 2'd1) begin
+                        lives <= lives - 1'b1;
+                        reset_level <= 1'b1;
+                    end
+                end
+					end
+               
+
+           
+            WAVE_CLEAR: begin
+                if (SW[1]) begin
+                    level <= level + 1'b1;
+                    reset_level <= 1'b1;
+                end
+            end
+
+       
+            GAME_OVER: begin
+       
+                if (SW[2]) begin
+                    total_score <= 11'd0;
+                    lives <= 2'd3;
+                    level <= 1'b1;
+                    reset_level <= 1'b1;
+                end
+            end
+        endcase
+    end
+	end
+
+
+
+
+
+player the_player (.clk(clk), .rst(rst), .bullet_hit(bullet_hit), .left(~KEY[3]), .right(~KEY[1]), .shoot(~KEY[2]), .xPixel(x), .yPixel(y), .in_game(in_game), .bullet_x(bullet_x),
+.bullet_y(bullet_y), .player_color(player_color));
+
+enemy_grid aliens(.clk(clk), .rst(rst), .xPixel(x), .yPixel(y), .bullet_x(bullet_x), .bullet_y(bullet_y), .bullet_hit(bullet_hit), .in_game(in_game), .enemy_color(enemy_color), 
+.score(score), .enemy_reached_bottom(enemy_reached_bottom));
+
+five_decimal_vals score1(total_score, HEX0, HEX1, HEX2, HEX3, HEX4, HEX5);
+
+debounce_switches db(clk, rst, SW, SW_db); 
 
 vga_driver the_vga(
 .clk(clk),
