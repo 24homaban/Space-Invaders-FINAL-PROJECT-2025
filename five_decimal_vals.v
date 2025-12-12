@@ -1,5 +1,5 @@
 module five_decimal_vals (
-input [16:0]val,
+	input [19:0]val,
 output [6:0]seg7_dig0,
 output [6:0]seg7_dig1,
 output [6:0]seg7_dig2,
@@ -42,6 +42,7 @@ seven_segment thousand_digit(result_thousand_digit, seg7_dig3);
 seven_segment hundred_digit(result_hundred_digit, seg7_dig2);
 seven_segment ten_digit(result_ten_digit, seg7_dig1);
 seven_segment one_digit(result_one_digit, seg7_dig0);
+
 
 
 
